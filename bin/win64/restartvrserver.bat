@@ -10,4 +10,8 @@ taskkill /im vrdashboard.exe /f >nul 2>nul
 taskkill /im vrserver.exe /f >nul 2>nul
 
 REM Start vrmonitor.exe
-start "" "C:\Program Files (x86)\Steam\steamapps\common\SteamVR\tools\bin\win32\vrmonitor.exe"
+SET steamvrpath="\steamapps\common\SteamVR\tools\bin\win32\vrmonitor.exe"
+FOR /F "usebackq tokens=2,* skip=2" %%L IN (
+    `reg query "HKCU\SOFTWARE\Valve\Steam" /v SteamPath`
+) DO SET steampath=%%M
+start "" %steampath%%steamvrpath%
