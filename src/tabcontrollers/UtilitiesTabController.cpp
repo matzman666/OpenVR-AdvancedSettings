@@ -308,8 +308,21 @@ namespace advsettings {
 
 
 	void UtilitiesTabController::eventLoopTick() {
+		if (m_cameraOverlayEnabled) {
+			vr::glUInt_t textureId;
+			vr::CameraVideoStreamFrameHeader_t frameHeader;
+			auto cError = vr::VRTrackedCamera()->GetVideoStreamTextureGL(_cameraHandle, vr::VRTrackedCameraFrameType_MaximumUndistorted, &textureId, &frameHeader, sizeof(vr::CameraVideoStreamFrameHeader_t));
+			if (cError == vr::VRTrackedCameraError_None) {
+				const vr::Texture_t texture = { (void*)textureId, vr::TextureType_OpenGL, vr::ColorSpace_Auto };
+				auto error = vr::VROverlay()->SetOverlayTexture(_cameraOverlayHandle, &texture);
+				if (error != vr::VROverlayError_None) {
+					LOG(ERROR) << "Error while setting camera overlay texture: " << vr::VROverlay()->GetOverlayErrorNameFromEnum(error);
+				}
+			} else {
+				LOG(ERROR) << "Couldn't get camera texture: " << vr::VRTrackedCamera()->GetCameraErrorNameFromEnum(cError);
+			}
+		}
 		if (settingsUpdateCounter >= 10) {
-
 			vr::VROverlayHandle_t pOverlayHandle;
 			auto error = vr::VROverlay()->FindOverlay(steamDesktopOverlaykey, &pOverlayHandle);
 			if (error == vr::VROverlayError_None) {
@@ -427,6 +440,7 @@ namespace advsettings {
 					if (error != vr::VROverlayError_None) {
 						LOG(ERROR) << "Could not modify overlay width of \"" << steamDesktopOverlaykey << "\": " << vr::VROverlay()->GetOverlayErrorNameFromEnum(error);
 					}
+					vr::VROverlay()->SetOverlayAlpha(_cameraOverlayHandle, 1.0f);
 				}
 			}
 			if (notify) {
@@ -435,5 +449,47 @@ namespace advsettings {
 		}
 	}
 
+	bool UtilitiesTabController::cameraOverlayEnabled() const {
+		return m_cameraOverlayEnabled;
+	}
+
+	void UtilitiesTabController::setCameraOverlayEnabled(bool value, bool notify) {
+		if (value != m_cameraOverlayEnabled) {
+			if (value) {
+				auto cError = vr::VRTrackedCamera()->AcquireVideoStreamingService(vr::k_unTrackedDeviceIndex_Hmd, &_cameraHandle);
+				if (cError == vr::VRTrackedCameraError_None) {
+					vr::VROverlay()->CreateOverlay("matzman666.advancedsettings.cameraoverlay", "Camera Overlay", &_cameraOverlayHandle);
+					vr::HmdMatrix34_t transform = {
+						1.0f,  0.0f,  0.0f,  0.0f,
+						0.0f,  1.0f,  0.0f,  -0.09f,
+						0.0f,  0.0f,  1.0f,  -0.3f
+					};
+					vr::VROverlay()->SetOverlayTransformTrackedDeviceRelative(_cameraOverlayHandle, vr::k_unTrackedDeviceIndex_Hmd, &transform);
+					vr::VROverlay()->SetOverlayWidthInMeters(_cameraOverlayHandle, 1.0f);
+					vr::VROverlay()->SetOverlayAlpha(_cameraOverlayHandle, 1.0f);
+					vr::VROverlay()->SetHighQualityOverlay(_cameraOverlayHandle);
+					vr::VROverlay()->SetOverlayFlag(_cameraOverlayHandle, vr::VROverlayFlags_Curved, true);
+					vr::VROverlay()->SetOverlayFlag(_cameraOverlayHandle, vr::VROverlayFlags_RGSS4X, true);
+					vr::VROverlay()->SetOverlayAutoCurveDistanceRangeInMeters(_cameraOverlayHandle, 0.0f, 0.3f);
+					/*vr::VRTextureBounds_t bounds = { 0.0f, 1.0f, 1.0f, 0.0f };
+					vr::VROverlay()->SetOverlayTextureBounds(_cameraOverlayHandle, &bounds);*/
+					vr::VROverlay()->ShowOverlay(_cameraOverlayHandle);
+					m_cameraOverlayEnabled = value;
+				} else {
+					LOG(ERROR) << "Couldn't acquire camera stream: " << vr::VRTrackedCamera()->GetCameraErrorNameFromEnum(cError);
+				}
+			} else {
+				m_cameraOverlayEnabled = value;
+				vr::VROverlay()->HideOverlay(_cameraOverlayHandle);
+				vr::VROverlay()->DestroyOverlay(_cameraOverlayHandle);
+			}
+			if (notify) {
+				emit cameraOverlayEnabledChanged(m_cameraOverlayEnabled);
+			}
+		}
+	}
+
+	void handleCameraFrame() {
+	}
 
 } // namespace advconfig

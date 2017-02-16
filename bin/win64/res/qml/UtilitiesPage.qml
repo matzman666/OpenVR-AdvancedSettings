@@ -312,6 +312,13 @@ MyStackViewPage {
             }
         }
 
+		MyPushButton {
+            text: "Puke-O-Vision"
+			onClicked: {
+				UtilitiesTabController.setCameraOverlayEnabled(!UtilitiesTabController.cameraOverlayEnabled, false)
+			}
+		}
+
         Item {
             Layout.fillHeight: true
         }

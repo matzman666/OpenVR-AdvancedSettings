@@ -3,6 +3,7 @@
 
 #include <QObject>
 #include <QTime>
+#include <openvr.h>
 
 class QQuickWindow;
 // application namespace
@@ -20,6 +21,7 @@ namespace advsettings {
 		Q_PROPERTY(int alarmTimeMinute READ alarmTimeMinute WRITE setAlarmTimeMinute NOTIFY alarmTimeMinuteChanged)
 		Q_PROPERTY(bool steamDesktopOverlayAvailable READ steamDesktopOverlayAvailable NOTIFY steamDesktopOverlayAvailableChanged)
 		Q_PROPERTY(float steamDesktopOverlayWidth READ steamDesktopOverlayWidth WRITE setSteamDesktopOverlayWidth NOTIFY steamDesktopOverlayWidthChanged)
+		Q_PROPERTY(float cameraOverlayEnabled READ cameraOverlayEnabled WRITE setCameraOverlayEnabled NOTIFY cameraOverlayEnabledChanged)
 
 	private:
 		OverlayController* parent;
@@ -34,6 +36,10 @@ namespace advsettings {
 		bool m_steamDesktopOverlayAvailable = false;
 		float m_steamDesktopOverlayWidth = 4.0f;
 
+		bool m_cameraOverlayEnabled = false;
+		vr::TrackedCameraHandle_t _cameraHandle = INVALID_TRACKED_CAMERA_HANDLE;
+		vr::VROverlayHandle_t _cameraOverlayHandle = vr::k_ulOverlayHandleInvalid;
+
 	public:
 		void initStage1();
 		void initStage2(OverlayController* parent, QQuickWindow* widget);
@@ -47,6 +53,9 @@ namespace advsettings {
 
 		bool steamDesktopOverlayAvailable() const;
 		float steamDesktopOverlayWidth() const;
+
+		bool cameraOverlayEnabled() const;
+		void handleCameraFrame();
 
 	public slots:
 		void sendKeyboardInput(QString input);
@@ -63,6 +72,8 @@ namespace advsettings {
 
 		void setSteamDesktopOverlayWidth(float width, bool notify = true, bool notifyOpenVr = true);
 
+		void setCameraOverlayEnabled(bool value, bool notify = true);
+
 	signals:
 		void alarmEnabledChanged(bool enabled);
 		void alarmIsModalChanged(bool modal);
@@ -71,6 +82,8 @@ namespace advsettings {
 
 		void steamDesktopOverlayAvailableChanged(bool available);
 		void steamDesktopOverlayWidthChanged(float width);
+
+		void cameraOverlayEnabledChanged(bool value);
 	};
 
 } // namespace advsettings
