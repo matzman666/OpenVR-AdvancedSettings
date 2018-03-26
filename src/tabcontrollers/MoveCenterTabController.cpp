@@ -2,6 +2,18 @@
 #include <QQuickWindow>
 #include "../overlaycontroller.h"
 
+void rotateCoordinates(float coordinates[3], float angle) {
+	if (angle == 0) {
+		return;
+	}
+	float s = sin(angle);
+	float c = cos(angle);
+	float newX = coordinates[0] * c - coordinates[2] * s;
+	float newZ = coordinates[0] * s + coordinates[2] * c;
+	coordinates[0] = newX;
+	coordinates[2] = newZ;
+}
+
 // application namespace
 namespace advsettings {
 
@@ -10,10 +22,18 @@ void MoveCenterTabController::initStage1() {
 	auto settings = OverlayController::appSettings();
 	settings->beginGroup("playspaceSettings");
 	auto value = settings->value("adjustChaperone", m_adjustChaperone);
-	settings->endGroup();
 	if (value.isValid() && !value.isNull()) {
 		m_adjustChaperone = value.toBool();
 	}
+	value = settings->value("moveShortcutRight", m_moveShortcutRightEnabled);
+	if (value.isValid() && !value.isNull()) {
+		m_moveShortcutRightEnabled = value.toBool();
+	}
+	value = settings->value("moveShortcutLeft", m_moveShortcutLeftEnabled);
+	if (value.isValid() && !value.isNull()) {
+		m_moveShortcutLeftEnabled = value.toBool();
+	}
+	settings->endGroup();
 }
 
 void MoveCenterTabController::initStage2(OverlayController * parent, QQuickWindow * widget) {
@@ -135,6 +155,39 @@ void MoveCenterTabController::setAdjustChaperone(bool value, bool notify) {
 	}
 }
 
+
+bool MoveCenterTabController::moveShortcutRight() const {
+	return m_moveShortcutRightEnabled;
+}
+
+void MoveCenterTabController::setMoveShortcutRight(bool value, bool notify) {
+	m_moveShortcutRightEnabled = value;
+	auto settings = OverlayController::appSettings();
+	settings->beginGroup("playspaceSettings");
+	settings->setValue("moveShortcutRight", m_moveShortcutRightEnabled);
+	settings->endGroup();
+	settings->sync();
+	if (notify) {
+		emit moveShortcutRightChanged(m_moveShortcutRightEnabled);
+	}
+}
+
+bool MoveCenterTabController::moveShortcutLeft() const {
+	return m_moveShortcutLeftEnabled;
+}
+
+void MoveCenterTabController::setMoveShortcutLeft(bool value, bool notify) {
+	m_moveShortcutLeftEnabled = value;
+	auto settings = OverlayController::appSettings();
+	settings->beginGroup("playspaceSettings");
+	settings->setValue("moveShortcutLeft", m_moveShortcutLeftEnabled);
+	settings->endGroup();
+	settings->sync();
+	if (notify) {
+		emit moveShortcutLeftChanged(m_moveShortcutLeftEnabled);
+	}
+}
+
 void MoveCenterTabController::modOffsetX(float value, bool notify) {
 	if (m_rotation == 0) {
 		parent->AddOffsetToUniverseCenter((vr::TrackingUniverseOrigin)m_trackingUniverse, 0, value, m_adjustChaperone);
@@ -192,12 +245,109 @@ void MoveCenterTabController::reset() {
 	emit rotationChanged(m_rotation);
 }
 
-void MoveCenterTabController::eventLoopTick(vr::ETrackingUniverseOrigin universe) {
+bool isMoveShortCutPressed(vr::ETrackedControllerRole hand) {
+	auto handId = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(hand);
+	if (handId == vr::k_unTrackedDeviceIndexInvalid) {
+		return false;
+	}
+
+	vr::VRControllerState_t state;
+	if (vr::VRSystem()->GetControllerState(handId, &state, sizeof(vr::VRControllerState_t))) {
+		return state.ulButtonPressed & vr::ButtonMaskFromId(vr::k_EButton_ApplicationMenu);
+	}
+
+	return false;
+}
+
+vr::ETrackedControllerRole MoveCenterTabController::getMoveShortcutHand() {
+	auto activeHand = m_activeMoveController;
+
+	bool rightPressed = m_moveShortcutRightEnabled && isMoveShortCutPressed(vr::TrackedControllerRole_RightHand);
+	bool leftPressed = m_moveShortcutLeftEnabled && isMoveShortCutPressed(vr::TrackedControllerRole_LeftHand);
+
+	// if we start pressing the shortcut on a controller we set the active one to it
+	if (rightPressed && !m_moveShortcutRightPressed) {
+		activeHand = vr::TrackedControllerRole_RightHand;
+	}
+	if (leftPressed && !m_moveShortcutLeftPressed) {
+		activeHand = vr::TrackedControllerRole_LeftHand;
+	}
+
+	// if we let down of a shortcut we set the active hand to any remaining pressed down hand
+	if (!rightPressed && m_moveShortcutRightPressed) {
+		activeHand = leftPressed ? vr::TrackedControllerRole_LeftHand : vr::TrackedControllerRole_Invalid;
+	}
+	if (!leftPressed && m_moveShortcutLeftPressed) {
+		activeHand = rightPressed ? vr::TrackedControllerRole_RightHand : vr::TrackedControllerRole_Invalid;
+	}
+	
+	m_activeMoveController = activeHand;
+	m_moveShortcutRightPressed = rightPressed;
+	m_moveShortcutLeftPressed = leftPressed;
+	
+	return activeHand;
+}
+
+
+void MoveCenterTabController::eventLoopTick(vr::ETrackingUniverseOrigin universe, vr::TrackedDevicePose_t* devicePoses) {
 	if (settingsUpdateCounter >= 50) {
 		setTrackingUniverse((int)universe);
 		settingsUpdateCounter = 0;
 	} else {
 		settingsUpdateCounter++;
+
+		auto oldMoveHand = m_activeMoveController;
+		auto newMoveHand = getMoveShortcutHand();
+		auto handId = vr::VRSystem()->GetTrackedDeviceIndexForControllerRole(newMoveHand);
+		if (newMoveHand == vr::TrackedControllerRole_Invalid || handId == vr::k_unTrackedDeviceIndexInvalid) {
+			if (oldMoveHand != vr::TrackedControllerRole_Invalid) {
+				emit offsetXChanged(m_offsetX);
+				emit offsetYChanged(m_offsetY);
+				emit offsetZChanged(m_offsetZ);
+			}
+			return;
+		} else if (newMoveHand != vr::TrackedControllerRole_Invalid) {
+			vr::VRChaperoneSetup()->RevertWorkingCopy();
+		}
+		vr::TrackedDevicePose_t* pose = devicePoses + handId;
+		vr::VRControllerState_t state;
+		if (vr::VRSystem()->GetControllerState(handId, &state, sizeof(vr::VRControllerState_t))) {
+			float relativeControllerPosition[] = {
+				pose->mDeviceToAbsoluteTracking.m[0][3],
+				pose->mDeviceToAbsoluteTracking.m[1][3],
+				pose->mDeviceToAbsoluteTracking.m[2][3]
+			};
+
+			auto angle = m_rotation * 2 * M_PI / 360.0;
+			rotateCoordinates(relativeControllerPosition, -angle);
+			float absoluteControllerPosition[] = {
+				relativeControllerPosition[0] + m_offsetX,
+				relativeControllerPosition[1] + m_offsetY,
+				relativeControllerPosition[2] + m_offsetZ,
+			};
+
+			if (oldMoveHand == newMoveHand) {
+
+				float diff[3] = {
+					absoluteControllerPosition[0] - m_lastControllerPosition[0],
+					absoluteControllerPosition[1] - m_lastControllerPosition[1],
+					absoluteControllerPosition[2] - m_lastControllerPosition[2],
+				};
+
+				// offset is un-rotated coordinates
+				m_offsetX += diff[0];
+				m_offsetY += diff[1];
+				m_offsetZ += diff[2];
+
+				rotateCoordinates(diff, angle);
+
+				parent->AddOffsetToUniverseCenter((vr::TrackingUniverseOrigin)m_trackingUniverse, diff, m_adjustChaperone, false);
+				vr::VRChaperoneSetup()->CommitWorkingCopy(vr::EChaperoneConfigFile_Live);
+			}
+			m_lastControllerPosition[0] = absoluteControllerPosition[0];
+			m_lastControllerPosition[1] = absoluteControllerPosition[1];
+			m_lastControllerPosition[2] = absoluteControllerPosition[2];
+		}
 	}
 }
 
