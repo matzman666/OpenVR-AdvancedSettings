@@ -1,6 +1,9 @@
 
 ![language](https://img.shields.io/badge/Language-C%2B%2B11%2C%20QML-green.svg) ![dependencies](https://img.shields.io/badge/Dependencies-OpenVR%2C%20Qt5-green.svg) ![license_gpl3](https://img.shields.io/badge/License-GPL%203.0-green.svg)
 
+> # **This repository is deprecated!** 
+> ### **The newest version can be found at [github.com/OpenVR-Advanced-Settings/OpenVR-AdvancedSettings](https://github.com/OpenVR-Advanced-Settings/OpenVR-AdvancedSettings).**
+
 # OpenVR Advanced Settings Overlay
 
 Adds an overlay to the OpenVR dashboard that allows access to advanced settings.
