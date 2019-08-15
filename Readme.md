@@ -116,6 +116,7 @@ Allows to temporarily move and rotate the center of the playspace. This allows t
 ![Floor Fix Page](docs/screenshots/FloorFixPage.png)
 
 Allows you to fix the height of your floor. Just place one controller on your floor and press the button.
+Note: you must teleport/move around after fixing for the new floor height to take effect.
 
 ## - Audio Page:
 
