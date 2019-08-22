@@ -1,54 +1,109 @@
-#-------------------------------------------------
-#
-# Project created by QtCreator 2015-06-10T16:57:45
-#
-#-------------------------------------------------
+QT       += core gui qml quick multimedia widgets
+CONFIG   += c++1z file_copies
 
-QT       += core gui qml quick multimedia
+DEFINES += ELPP_THREAD_SAFE ELPP_QT_LOGGING ELPP_NO_DEFAULT_LOG_FILE
 
-greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
+VERSION = "$$cat($$PWD/build_scripts/compile_version_string.txt)"
+DEFINES += APPLICATION_VERSION=\\\"$$VERSION\\\"
+# Qmake can't handle non-integers in the version string,
+# so we take out anything after the dash.
+SPLIT_VERSION_STRING = $$split(VERSION, -)
+NUMERICAL_VERSION_NUMBER = $$member(SPLIT_VERSION_STRING, 0, 0)
+VERSION = $$NUMERICAL_VERSION_NUMBER
+
+# Keep the literal version number in the description field for debugging.
+QMAKE_TARGET_DESCRIPTION = "$$cat($$PWD/build_scripts/compile_version_string.txt)"
+
+lessThan(QT_MAJOR_VERSION, 5): error("requires Qt 5.12 or higher")
+lessThan(QT_MINOR_VERSION, 12): error("requires Qt 5.12 or higher")
 
 TARGET = AdvancedSettings
 TEMPLATE = app
 
+win32:DESTDIR = bin/win64/AdvancedSettings
+unix:DESTDIR = bin/linux/AdvancedSettings
 
-SOURCES += src/main.cpp\
-		src/overlaycontroller.cpp \
-		src/tabcontrollers/AudioTabController.cpp \
-		src/tabcontrollers/ChaperoneTabController.cpp \
-		src/tabcontrollers/FixFloorTabController.cpp \
-		src/tabcontrollers/MoveCenterTabController.cpp \
-		src/tabcontrollers/SettingsTabController.cpp \
-		src/tabcontrollers/StatisticsTabController.cpp \
-		src/tabcontrollers/SteamVRTabController.cpp \
-		src/tabcontrollers/ReviveTabController.cpp \
-		src/tabcontrollers/UtilitiesTabController.cpp \
-		src/tabcontrollers/audiomanager/AudioManagerWindows.cpp \
-		src/tabcontrollers/PttController.cpp \
-		src/tabcontrollers/AccessibilityTabController.cpp \
-		src/utils/ChaperoneUtils.cpp
+include_dir = $$PWD/build_scripts/qt/
 
-HEADERS  += src/overlaycontroller.h \
-		src/logging.h \
-		src/tabcontrollers/AudioTabController.h \
-		src/tabcontrollers/ChaperoneTabController.h \
-		src/tabcontrollers/FixFloorTabController.h \
-		src/tabcontrollers/MoveCenterTabController.h \
-		src/tabcontrollers/SettingsTabController.h \
-		src/tabcontrollers/StatisticsTabController.h \
-		src/tabcontrollers/SteamVRTabController.h \
-		src/tabcontrollers/ReviveTabController.h \
-		src/tabcontrollers/UtilitiesTabController.h \
-		src/tabcontrollers/AudioManager.h \
-		src/tabcontrollers/audiomanager/AudioManagerWindows.h \
-		src/tabcontrollers/PttController.h \
-		src/tabcontrollers/AccessibilityTabController.h \
-		src/utils/Matrix.h \
-		src/utils/ChaperoneUtils.h
+win32-msvc {
+    include($$include_dir/compilers/msvc.pri)
+}
+win32-clang-msvc{
+    include($$include_dir/compilers/clang-msvc.pri)
+}
+*g++* {
+    include($$include_dir/compilers/gcc.pri)
+}
+#Look for anything clang that is not clang-msvc, since it does not
+#allow all the same switches as regular clang.
+*clang|*clang-g++|*clang-libc++ {
+    include($$include_dir/compilers/clang.pri)
+}
 
-INCLUDEPATH += third-party/openvr/include \
-			third-party/easylogging++
+include($$include_dir/sources.pri)
 
-LIBS += -Lthird-party/openvr/lib/win64 -lopenvr_api
+include($$include_dir/resources.pri)
 
-DESTDIR = bin/win64
+# Copy extra files
+COPIES += resCopy readmeCopy licenseCopy packageFoldersCopy openvrApiCopy packageFilesCopy
+COPY_DEST_DIR = $$OUT_PWD/$$DESTDIR
+
+resCopy.files = src/res/*
+resCopy.path = $$COPY_DEST_DIR/res
+
+readmeCopy.files = Readme.md
+readmeCopy.path = $$COPY_DEST_DIR
+
+licenseCopy.files = LICENSE \
+                    third-party/openvr/LICENSE-VALVE  \
+                    third-party/easylogging++/LICENSE-MIT
+licenseCopy.path = $$COPY_DEST_DIR
+
+packageFoldersCopy.files = src/package_files/default_action_manifests
+packageFoldersCopy.path = $$COPY_DEST_DIR
+
+packageFilesCopy.files = src/package_files/action_manifest.json src/package_files/manifest.vrmanifest
+win32:packageFilesCopy.files += src/package_files/qt.conf src/package_files/restartvrserver.bat src/package_files/startdesktopmode.bat
+packageFilesCopy.path = $$COPY_DEST_DIR
+
+win32:openvrApiCopy.files = third-party/openvr/bin/win64/openvr_api.dll
+unix:openvrApiCopy.files = third-party/openvr/lib/linux64/libopenvr_api.so
+openvrApiCopy.path = $$COPY_DEST_DIR
+
+# Deploy resources and DLLs to exe dir on Windows
+win32 {
+    WINDEPLOYQT_LOCATION = $$dirname(QMAKE_QMAKE)/windeployqt.exe
+
+    CONFIG( debug, debug|release ) {
+        WINDEPLOYQT_BUILD_TARGET += "--debug"
+    } else {
+        WINDEPLOYQT_BUILD_TARGET += "--release"
+    }
+
+    WINDEPLOYQT_OPTIONS = --dir $$COPY_DEST_DIR/qtdata \
+                          --libdir $$COPY_DEST_DIR \
+                          --plugindir $$COPY_DEST_DIR/qtdata/plugins \
+                          --no-system-d3d-compiler \
+                          --no-opengl-sw \
+                          $$WINDEPLOYQT_BUILD_TARGET \
+                          --qmldir $$PWD/src/res/qml \
+                          $$COPY_DEST_DIR/AdvancedSettings.exe
+    WINDEPLOYQT_FULL_LINE = "$$WINDEPLOYQT_LOCATION $$WINDEPLOYQT_OPTIONS"
+
+    # Force windeployqt to run in cmd, because powershell has different syntax
+    # for running executables.
+    QMAKE_POST_LINK = cmd /c $$WINDEPLOYQT_FULL_LINE
+}
+
+# Add make install support
+unix {
+    isEmpty(PREFIX){
+        PREFIX = /opt/OpenVR-AdvancedSettings
+    }
+
+    application.path = $$PREFIX
+    application.files = $$COPY_DEST_DIR
+
+    INSTALLS += application
+}
+

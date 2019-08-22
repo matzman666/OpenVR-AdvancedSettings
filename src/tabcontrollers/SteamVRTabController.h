@@ -3,105 +3,105 @@
 
 #include <QObject>
 
-// openvr's github repo hasn't been updated yet to reflect changes in beta 1477423729.
-//static const char* vrsettings_steamvr_allowAsyncReprojection = "allowAsyncReprojection";
-//static const char* vrsettings_steamvr_allowInterleavedReprojection = "allowInterleavedReprojection";
-static const char* vrsettings_compositor_category = "compositor";
-static const char* vrsettings_steamvr_supersampleScale = "supersampleScale";
-static const char* vrsettings_steamvr_allowSupersampleFiltering = "allowSupersampleFiltering";
-
-
 class QQuickWindow;
 // application namespace
-namespace advsettings {
-
+namespace advsettings
+{
 // forward declaration
 class OverlayController;
 
+struct SteamVRProfile
+{
+    std::string profileName;
 
-struct SteamVRProfile {
-	std::string profileName;
+    bool includesSupersampling = false;
+    float supersampling = 1.0f;
 
-	bool includesSupersampling = false;
-	float supersampling = 1.0f;
-
-	bool includesSupersampleFiltering = false;
-	bool supersampleFiltering = false;
-
-	bool includesReprojectionSettings = false;
-	bool asynchronousReprojection = true;
-	bool interleavedReprojection = true;
-	bool alwaysOnReprojection = true;
+    bool includesSupersampleFiltering = false;
+    bool supersampleFiltering = false;
+    bool motionSmooth = false;
+    bool includesMotionSmoothing = false;
+    bool supersampleOverride = false;
 };
 
+class SteamVRTabController : public QObject
+{
+    Q_OBJECT
+    Q_PROPERTY( float superSampling READ superSampling WRITE setSuperSampling
+                    NOTIFY superSamplingChanged )
 
-class SteamVRTabController : public QObject {
-	Q_OBJECT
-	Q_PROPERTY(float superSampling READ superSampling WRITE setSuperSampling NOTIFY superSamplingChanged)
-	Q_PROPERTY(float compositorSuperSampling READ compositorSuperSampling WRITE setCompositorSuperSampling NOTIFY compositorSuperSamplingChanged)
-	Q_PROPERTY(bool allowInterleavedReprojection READ allowInterleavedReprojection WRITE setAllowInterleavedReprojection NOTIFY allowInterleavedReprojectionChanged)
-	Q_PROPERTY(bool allowAsyncReprojection READ allowAsyncReprojection WRITE setAllowAsyncReprojection NOTIFY allowAsyncReprojectionChanged)
-	Q_PROPERTY(bool forceReprojection READ forceReprojection WRITE setForceReprojection NOTIFY forceReprojectionChanged)
-	Q_PROPERTY(bool allowSupersampleFiltering READ allowSupersampleFiltering WRITE setAllowSupersampleFiltering NOTIFY allowSupersampleFilteringChanged)
+    Q_PROPERTY( bool motionSmoothing READ motionSmoothing WRITE
+                    setMotionSmoothing NOTIFY motionSmoothingChanged )
+    Q_PROPERTY( bool allowSupersampleFiltering READ allowSupersampleFiltering
+                    WRITE setAllowSupersampleFiltering NOTIFY
+                        allowSupersampleFilteringChanged )
+    Q_PROPERTY(
+        bool allowSupersampleOverride READ allowSupersampleOverride WRITE
+            setAllowSupersampleOverride NOTIFY allowSupersampleOverrideChanged )
+
+    Q_PROPERTY( bool performanceGraph READ performanceGraph WRITE
+                    setPerformanceGraph NOTIFY performanceGraphChanged )
 
 private:
-	OverlayController* parent;
-	QQuickWindow* widget;
+    OverlayController* parent;
 
-	float m_superSampling = 1.0;
-	float m_compositorSuperSampling = 1.0;
-	bool m_allowInterleavedReprojection = true;
-	bool m_allowAsyncReprojection = true;
-	bool m_forceReprojection = false;
-	bool m_allowSupersampleFiltering = true;
+    float m_superSampling = 1.0;
+    bool m_motionSmoothing = true;
+    bool m_allowSupersampleFiltering = true;
+    bool m_allowSupersampleOverride = false;
+    bool m_performanceGraphToggle = false;
 
-	std::vector<SteamVRProfile> steamvrProfiles;
+    void initMotionSmoothing();
+    void initSupersampleOverride();
 
-	unsigned settingsUpdateCounter = 0;
+    std::vector<SteamVRProfile> steamvrProfiles;
+
+    unsigned settingsUpdateCounter = 0;
 
 public:
-	void initStage1();
-	void initStage2(OverlayController* parent, QQuickWindow* widget);
+    void initStage1();
+    void initStage2( OverlayController* parent );
 
-	void eventLoopTick();
+    void eventLoopTick();
 
-	float superSampling() const;
-	float compositorSuperSampling() const;
-	bool allowInterleavedReprojection() const;
-	bool allowAsyncReprojection() const;
-	bool forceReprojection() const;
-	bool allowSupersampleFiltering() const;
+    float superSampling() const;
+    bool motionSmoothing() const;
+    bool allowSupersampleFiltering() const;
+    bool allowSupersampleOverride() const;
+    bool performanceGraph() const;
 
-	void reloadSteamVRProfiles();
-	void saveSteamVRProfiles();
+    void reloadSteamVRProfiles();
+    void saveSteamVRProfiles();
 
-	Q_INVOKABLE unsigned getSteamVRProfileCount();
-	Q_INVOKABLE QString getSteamVRProfileName(unsigned index);
+    Q_INVOKABLE int getSteamVRProfileCount();
+    Q_INVOKABLE QString getSteamVRProfileName( unsigned index );
 
 public slots:
-	void setSuperSampling(float value, bool notify = true);
-	void setCompositorSuperSampling(float value, bool notify = true);
-	void setAllowInterleavedReprojection(bool value, bool notify = true);
-	void setAllowAsyncReprojection(bool value, bool notify = true);
-	void setForceReprojection(bool value, bool notify = true);
-	void setAllowSupersampleFiltering(bool value, bool notify = true);
+    void setSuperSampling( float value, bool notify = true );
+    void setMotionSmoothing( bool value, bool notify = true );
+    void setAllowSupersampleFiltering( bool value, bool notify = true );
+    void setAllowSupersampleOverride( bool value, bool notify = true );
+    void setPerformanceGraph( bool value, bool notify = true );
 
-	void addSteamVRProfile(QString name, bool includeSupersampling, bool includeSupersampleFiltering, bool includeReprojectionSettings);
-	void applySteamVRProfile(unsigned index);
-	void deleteSteamVRProfile(unsigned index);
+    void addSteamVRProfile( QString name,
+                            bool includeSupersampling,
+                            bool includeSupersampleFiltering,
+                            bool includeMotionSmoothing );
+    void applySteamVRProfile( unsigned index );
+    void deleteSteamVRProfile( unsigned index );
 
-	void reset();
-	void restartSteamVR();
+    void reset();
+    void restartSteamVR();
 
 signals:
-	void superSamplingChanged(float value);
-	void compositorSuperSamplingChanged(float value);
-	void allowInterleavedReprojectionChanged(bool value);
-	void allowAsyncReprojectionChanged(bool value);
-	void forceReprojectionChanged(bool value);
-	void allowSupersampleFilteringChanged(bool value);
+    void superSamplingChanged( float value );
+    void motionSmoothingChanged( bool value );
+    void allowSupersampleFilteringChanged( bool value );
+    void allowSupersampleOverrideChanged( bool value );
+    void performanceGraphChanged( bool value );
 
-	void steamVRProfilesUpdated();
+    void steamVRProfilesUpdated();
+    void steamVRProfileAdded();
 };
 
 } // namespace advsettings

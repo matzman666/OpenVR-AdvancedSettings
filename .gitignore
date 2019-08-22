@@ -1,0 +1,17 @@
+debug
+release
+assets
+bin
+build
+Makefile*
+*.vcxproj*
+*.log
+*.vs
+*.stash
+*.appxmanifest
+*.user
+installer/*.exe
+*.user*
+build_scripts/win/__pycache__
+build_scripts/win/current_build.bat
+AdvancedSettings_resource.rc

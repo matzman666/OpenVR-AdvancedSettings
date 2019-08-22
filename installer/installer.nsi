@@ -6,11 +6,20 @@
 ;--------------------------------
 ;General
 
-	!define BASEDIR "..\bin\win64"
+        !define BASEDIR "..\bin\win64\AdvancedSettings"
+		!define SRCDIR "..\src"
+		!define THIRDDIR "..\third-party"
+        !define PACKAGEDIR "..\src\package_files"
+        !define PROJECTDIR "..\"
+        !define /file VERSION_STRING "..\build_scripts\compile_version_string.txt"
 
+        
+    ;Installer icon
+    !define MUI_ICON "${PROJECTDIR}\src\res\img\icons\advicon256px.ico"
+    
 	;Name and file
 	Name "OpenVR Advanced Settings"
-	OutFile "OpenVR-AdvancedSettings-Installer.exe"
+        OutFile "AdvancedSettings-${VERSION_STRING}-Installer.exe"
 	
 	;Default installation folder
 	InstallDir "$PROGRAMFILES64\OpenVR-AdvancedSettings"
@@ -101,20 +110,29 @@ Section "Install" SecInstall
 	SetOutPath "$INSTDIR"
 
 	;ADD YOUR OWN FILES HERE...
-	File "${BASEDIR}\LICENSE"
+    File "${BASEDIR}\LICENSE"
+    File "${BASEDIR}\LICENSE-MIT"
+    File "${BASEDIR}\LICENSE-VALVE"
+    
 	File "${BASEDIR}\*.exe"
+    ;Any action manifests
+    File "${PACKAGEDIR}\*.json"
+    ;And their defaults
+    File /r "${PACKAGEDIR}\default_action_manifests"
+    
+	File "${THIRDDIR}\openvr\bin\win64\*.dll"
 	File "${BASEDIR}\*.dll"
-	File "${BASEDIR}\*.bat"
-	File "${BASEDIR}\*.vrmanifest"
-	File "${BASEDIR}\*.conf"
-	File /r "${BASEDIR}\res"
+	File "${PACKAGEDIR}\*.bat"
+	File "${PACKAGEDIR}\*.vrmanifest"
+	File "${PACKAGEDIR}\*.conf"
+	File /r "${SRCDIR}\res"
 	File /r "${BASEDIR}\qtdata"
 
 	; Install redistributable
 	ExecWait '"$INSTDIR\vcredist_x64.exe" /install /quiet'
 
 	; Install the vrmanifest
-	nsExec::ExecToLog '"$INSTDIR\AdvancedSettings.exe" -installmanifest'
+	nsExec::ExecToLog '"$INSTDIR\AdvancedSettings.exe" --force-install-manifest'
   
 	;Store installation folder
 	WriteRegStr HKLM "Software\OpenVR-AdvancedSettings" "" $INSTDIR
@@ -139,7 +157,7 @@ Section "Uninstall"
 	!insertmacro TerminateOverlay
 
 	; Remove the vrmanifest
-	nsExec::ExecToLog '"$INSTDIR\AdvancedSettings.exe" -removemanifest'
+	nsExec::ExecToLog '"$INSTDIR\AdvancedSettings.exe" --force-remove-manifest'
 
 	; Delete installed files
 	!include uninstallFiles.list
