@@ -518,9 +518,9 @@ void OverlayController::RotateUniverseCenter(vr::ETrackingUniverseOrigin univers
 		vr::HmdMatrix34_t newPos;
 		utils::initRotationMatrix(rotMat, 1, yAngle);
 		utils::matMul33(newPos, rotMat, curPos);
-		newPos.m[0][3] = curPos.m[0][3];
+		newPos.m[0][3] = std::cos(yAngle) * curPos.m[0][3] + std::sin(yAngle) * curPos.m[2][3];
 		newPos.m[1][3] = curPos.m[1][3];
-		newPos.m[2][3] = curPos.m[2][3];
+		newPos.m[2][3] = std::cos(yAngle) * curPos.m[2][3] - std::sin(yAngle) * curPos.m[0][3];
 		if (universe == vr::TrackingUniverseStanding) {
 			vr::VRChaperoneSetup()->SetWorkingStandingZeroPoseToRawTrackingPose(&newPos);
 		} else {
